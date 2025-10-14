@@ -12,6 +12,7 @@ class MonoDepthBaseModule(LightningModule):
         self.optim_opt = opt.optim
         self.dataset_name = opt.dataset.list[0]
         self.automatic_optimization = True
+        self.val_outputs = []
 
     def get_optimize_param(self):
         pass
@@ -64,6 +65,7 @@ class MonoDepthBaseModule(LightningModule):
 
         # record log
         self.log('train/total_loss', total_loss)
+        print(f"[Train] Epoch {self.current_epoch} | Iter {batch_idx} | total_loss: {total_loss.item():.4f}")
         return total_loss
 
     def validation_step(self, batch, batch_idx):
@@ -78,6 +80,7 @@ class MonoDepthBaseModule(LightningModule):
         errs = {'abs_rel': errs[1], 'sq_rel': errs[2], 
                 'rmse': errs[4], 'rmse_log': errs[5],
                 'a1': errs[6], 'a2': errs[7], 'a3': errs[8]}
+        self.val_outputs.append(errs)
 
         # plot
         if batch_idx < 2:
@@ -93,7 +96,10 @@ class MonoDepthBaseModule(LightningModule):
 
         return errs
 
-    def validation_epoch_end(self, outputs):
+    def on_validation_epoch_end(self):
+        
+        outputs = self.val_outputs
+
         mean_rel    = np.array([x['abs_rel'] for x in outputs]).mean()
         mean_sq_rel = np.array([x['sq_rel'] for x in outputs]).mean()
         mean_rmse   = np.array([x['rmse'] for x in outputs]).mean()
@@ -111,9 +117,11 @@ class MonoDepthBaseModule(LightningModule):
         self.log('val/a1', mean_a1)
         self.log('val/a2', mean_a2)
         self.log('val/a3', mean_a3)
+        self.val_outputs.clear()  # IMPORTANT: reset accumulator
     
     def test_step(self, batch_data, batch_idx, dataloader_idx=0):
         return self.validation_step(batch_data, batch_idx, dataloader_idx)
 
     def test_epoch_end(self, test_step_outputs):
+        
         return self.validation_epoch_end(test_step_outputs)

@@ -64,7 +64,7 @@ def main():
 
     if args.ckpt_path != None:
         print('load pre-trained model from {}'.format(args.ckpt_path))
-        model.load_state_dict(torch.load(args.ckpt_path)['state_dict'],strict=False)
+        model.load_state_dict(torch.load(args.ckpt_path)['state_dict'])
         # model = model.load_from_checkpoint(args.ckpt_path,strict=False)
     model.cuda()
     model.eval()
@@ -111,15 +111,23 @@ def main():
             if i%10 == 0 :
                 c_, h, w = tgt_img[0].size()
                 if tgt_img.nelement() != gt_depth.nelement():
-                    pred_depth = torch.nn.functional.interpolate(pred_depth.unsqueeze(1), [h, w], mode='bilinear').squeeze(1)
+                    pred_depth = torch.nn.functional.interpolate(pred_depth.unsqueeze(1), [h, w], mode='bilinear').squeeze(1).cpu()
                     gt_depth = torch.nn.functional.interpolate(gt_depth.unsqueeze(1), [h, w], mode='nearest').squeeze(1)
 
                 img_vis = visualize_image(tgt_img[0], flag_np=True).transpose(1,2,0)
-                pred_depth_ = visualize_depth_as_numpy(pred_depth.squeeze(), 'jet')
-                gt_depth = visualize_depth_as_numpy(gt_depth.squeeze(), 'jet', is_sparse=True)
+                stacked = torch.cat((gt_depth,pred_depth), dim=1) # 2HW
+
+                vis_depth,_ = visualize_depth_as_numpy(stacked.squeeze(), 'jet',is_sparse=True)
+                gt_viz = vis_depth[:h].copy()
+                gt_mask = np.all(gt_viz == 0, axis=-1)
+                pred_depth_ = vis_depth[h:].copy()
+                pred_depth_[gt_mask] = 0
+
+                #viz mask also . convert to RGB. 
+                mask_viz = (np.logical_not(gt_mask)*255).astype(np.uint8).reshape(h,w,1).repeat(3,axis=2)
 
                 png_path = osp.join(save_dir_all, "{:05}.png".format(i))
-                stack = cv2.cvtColor(np.concatenate((img_vis, gt_depth, pred_depth_), axis=0), cv2.COLOR_RGB2BGR)
+                stack = cv2.cvtColor(np.concatenate((img_vis,vis_depth, pred_depth_), axis=0), cv2.COLOR_RGB2BGR)
                 cv2.imwrite(png_path, stack)
                 
     all_errs = np.stack(all_errs)

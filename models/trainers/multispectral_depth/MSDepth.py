@@ -501,7 +501,7 @@ class MSDepth(LightningModule):
 
         return errs
 
-    def validation_epoch_end(self, outputs):
+    def on_validation_epoch_end(self, outputs):
         mean_rel = np.array([x['abs_rel'] for x in outputs]).mean()
         mean_diff = np.array([x['abs_diff'] for x in outputs]).mean()
         mean_a1 = np.array([x['a1'] for x in outputs]).mean()

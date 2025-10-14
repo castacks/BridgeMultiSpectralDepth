@@ -114,12 +114,12 @@ class DataLoader_MS2(data.Dataset):
     def set_augmentations(self, data_split, tf_dict):
         self.tf = {}
         if data_split == 'train':
-            self.tf['rgb'] = tf_dict['rgb']['train']
-            self.tf['nir'] = tf_dict['nir']['train']
+            # self.tf['rgb'] = tf_dict['rgb']['train']
+            # self.tf['nir'] = tf_dict['nir']['train']
             self.tf['thr'] = tf_dict['thr']['train']
         else:
-            self.tf['rgb'] = tf_dict['rgb']['eval']
-            self.tf['nir'] = tf_dict['nir']['eval']
+            # self.tf['rgb'] = tf_dict['rgb']['eval']
+            # self.tf['nir'] = tf_dict['nir']['eval']
             self.tf['thr'] = tf_dict['thr']['eval']
 
     def set_extrinsics(self) :

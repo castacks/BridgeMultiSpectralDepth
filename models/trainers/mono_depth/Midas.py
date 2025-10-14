@@ -2,7 +2,7 @@
 # Reference: https://github.com/isl-org/MiDaS
 import torch
 
-from models.network import DPTDepthModel, MidasNet, MidasNet_small
+from models.network import DPTDepthModel, MidasNet, MidasNet_small, MidasNetViT
 from models.losses.midas_loss import ScaleAndShiftInvariantLoss, compute_scale_and_shift
 
 from models.registry import MODELS
@@ -24,12 +24,21 @@ class Midas(MonoDepthBaseModule):
 
         if self.model == 'midas':
             self.depth_net = MidasNet(path=ckpt_path, non_negative=True) 
+        elif self.model == 'midas_vit':
+            self.depth_net = MidasNetViT(path=ckpt_path, non_negative=True,pretrained_backbone=opt.model.pretrained_backbone,freeze_backbone=opt.model.freeze_backbone)
+        elif self.model == 'midas_dinov2_vitb14':
+            backbone_path = opt.model.backbone_path if hasattr(opt.model, 'backbone_path') else None
+            self.depth_net = MidasNetViT(path=ckpt_path, non_negative=True,backbone="dinov2_vitb14",pretrained_backbone=opt.model.pretrained_backbone,freeze_backbone=opt.model.freeze_backbone, backbone_path=backbone_path)
         elif self.model == 'midas_small':
             self.depth_net = MidasNet_small(path=ckpt_path, features=64, backbone="efficientnet_lite3", exportable=True, non_negative=True, blocks={'expand': True})
         elif self.model == 'dpt_hybrid':
             self.depth_net = DPTDepthModel(path=ckpt_path, backbone="vitb_rn50_384", non_negative=True) 
         elif self.model == 'dpt_large':
-            self.depth_net = DPTDepthModel(path=ckpt_path, backbone="vitl16_384", non_negative=True) 
+            self.depth_net = DPTDepthModel(path=ckpt_path, backbone="vitl16_384", non_negative=True)
+        elif self.model == "dpt_dinov2_vitb14":
+            self.depth_net = DPTDepthModel(path=ckpt_path, backbone="dinov2_vitb14", non_negative=True,scale=1.75,freeze_backbone=opt.model.freeze_backbone,pretrained_backbone=opt.model.pretrained_backbone)
+        elif self.model == "dpt_big":
+            self.depth_net = DPTDepthModel(path=ckpt_path, backbone="vitb16_384", non_negative=True,freeze_backbone=opt.model.freeze_backbone,pretrained_backbone=opt.model.pretrained_backbone)
 
         self.criterion    = ScaleAndShiftInvariantLoss()
         self.min_depth   = opt.model.min_depth

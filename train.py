@@ -17,7 +17,7 @@ def parse_args():
     # configure file
     parser.add_argument('--config', help='config file path')
     parser.add_argument('--out_dir' , type=str, default='checkpoints')
-    parser.add_argument('--exp_name', type=str, default='test_', help='experiment name')
+    parser.add_argument('--exp_name', type=str, default='default', help='experiment name')
     parser.add_argument('--num_gpus', type=int, default=1, help='number of gpus')
     parser.add_argument('--seed', type=int, default=1024)
     parser.add_argument('--ckpt_path', type=str, default=None,
@@ -26,7 +26,6 @@ def parse_args():
     return parser.parse_args()
 
 if __name__ == '__main__':
-
     # parse args
     args = parse_args()
 
@@ -37,6 +36,8 @@ if __name__ == '__main__':
     print(f'Now training with {args.config}...')
 
     # configure seed
+    if hasattr(cfg, 'seed'):
+        args.seed = cfg.seed
     seed_everything(args.seed)
 
     # prepare data loader & ckpt_callback
@@ -52,6 +53,8 @@ if __name__ == '__main__':
     # define ckpt_callback
     val_loaders = []
     checkpoint_callbacks = []
+    if args.exp_name =="default":
+      args.exp_name = osp.splitext(osp.basename(args.config))[0]
     work_dir = osp.join(args.out_dir, args.exp_name)
 
     if 'depth' in cfg.model.eval_mode: 
@@ -86,7 +89,7 @@ if __name__ == '__main__':
         model.load_state_dict(torch.load(args.ckpt_path)['state_dict'],strict=False)
 
     # training
-    trainer = Trainer(strategy=DDPStrategy(find_unused_parameters=False) if args.num_gpus > 1 else None,
+    trainer = Trainer(strategy=DDPStrategy(find_unused_parameters=False) if args.num_gpus > 1 else "auto",
                       accelerator="gpu", 
                       devices=args.num_gpus,
                       default_root_dir=work_dir,

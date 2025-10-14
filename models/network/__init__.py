@@ -8,6 +8,6 @@
 # monocular depth network
 from .dorn.dorn import DeepOrdinalRegression
 from .bts.bts import BtsModel
-from .midas import DPTDepthModel, MidasNet, MidasNet_small
+from .midas import DPTDepthModel, MidasNet, MidasNet_small, MidasNetViT
 from .adabin import UnetAdaptiveBins
 from .newcrf import NewCRFDepth

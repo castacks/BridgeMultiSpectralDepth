@@ -59,7 +59,7 @@ def visualize_disp_as_numpy(disp, cmap='jet'):
     vis_data = (mapper.to_rgba(disp)[:, :, :3] * 255).astype(np.uint8)
     return vis_data
 
-def visualize_depth_as_numpy(depth, cmap='jet', is_sparse=False):
+def visualize_depth_as_numpy(depth, cmap='jet', is_sparse=False, vmax = None):
     """
     Args:
         data (HxW): depth data
@@ -73,14 +73,17 @@ def visualize_depth_as_numpy(depth, cmap='jet', is_sparse=False):
 
     inv_depth = 1 / (x + 1e-6)
 
-    if is_sparse:
-        vmax = 1/np.percentile(x[x!=0], 5)
-    else:
-        vmax = np.percentile(inv_depth, 95)
+    if vmax is None:
+        if is_sparse:
+            vmax = 1/np.percentile(x[x!=0], 5)
+        else:
+            vmax = np.percentile(inv_depth, 95)
 
     normalizer = mpl.colors.Normalize(vmin=inv_depth.min(), vmax=vmax)
     mapper = cm.ScalarMappable(norm=normalizer, cmap=cmap)
     vis_data = (mapper.to_rgba(inv_depth)[:, :, :3] * 255).astype(np.uint8)
+    mask = None
     if is_sparse:
-        vis_data[inv_depth>vmax] = 0
-    return vis_data
+        mask = inv_depth>vmax
+        vis_data[mask] = 0
+    return vis_data, mask, vmax

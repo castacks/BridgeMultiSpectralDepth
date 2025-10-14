@@ -56,7 +56,12 @@ class Transpose(nn.Module):
 def forward_vit(pretrained, x):
     b, c, h, w = x.shape
 
-    glob = pretrained.model.forward_flex(x)
+    if not hasattr(pretrained.model, "pos_drop"):
+        dinov2_dict = pretrained.model.forward_features(x)
+        B,D = dinov2_dict['x_norm_clstoken'].shape
+        glob = torch.cat([dinov2_dict['x_norm_clstoken'].reshape(B,1,D), dinov2_dict['x_norm_patchtokens']], dim=1)
+    else:
+        glob = pretrained.model.forward_flex(x)
 
     layer_1 = pretrained.activations["1"]
     layer_2 = pretrained.activations["2"]
@@ -73,8 +78,8 @@ def forward_vit(pretrained, x):
             2,
             torch.Size(
                 [
-                    h // pretrained.model.patch_size[1],
-                    w // pretrained.model.patch_size[0],
+                    h // pretrained.model.patch_size[1] if isinstance(pretrained.model.patch_size, list) else h // pretrained.model.patch_size,
+                    w // pretrained.model.patch_size[0] if isinstance(pretrained.model.patch_size, list) else w // pretrained.model.patch_size,
                 ]
             ),
         )
@@ -188,6 +193,7 @@ def _make_vit_b16_backbone(
     vit_features=768,
     use_readout="ignore",
     start_index=1,
+    patch_size = [16,16]
 ):
     pretrained = nn.Module()
 
@@ -282,7 +288,8 @@ def _make_vit_b16_backbone(
     )
 
     pretrained.model.start_index = start_index
-    pretrained.model.patch_size = [16, 16]
+    if not hasattr(pretrained.model, 'patch_size'):
+        pretrained.model.patch_size = patch_size
 
     # We inject this function into the VisionTransformer instances so that
     # we can use it with interpolated position embeddings without modifying the library source.
@@ -315,10 +322,21 @@ def _make_pretrained_vitb16_384(pretrained, use_readout="ignore", hooks=None):
         model, features=[96, 192, 384, 768], hooks=hooks, use_readout=use_readout
     )
 
+def _make_pretrained_dinov2_vitb14(pretrained, use_readout="ignore", hooks=None, backbone_path=None):
+    model = torch.hub.load("/ocean/projects/cis220039p/pmaheshw/code/multi-modal/dinov2", "dinov2_vitb14",source="local",pretrained= pretrained)
+    if backbone_path is not None:
+        print(f"Loading dinvo2 backbone from {backbone_path}")
+        model.load_state_dict(torch.load(backbone_path)["student_model_state_dict"]['backbone_model_state_dict'])
+
+    patch_size = [model.patch_size, model.patch_size]
+    hooks = [2, 5, 8, 11] if hooks == None else hooks
+    return _make_vit_b16_backbone(
+        model, features=[96, 192, 384, 768], hooks=hooks, use_readout=use_readout, patch_size = patch_size
+    )
 
 def _make_pretrained_deitb16_384(pretrained, use_readout="ignore", hooks=None):
     model = timm.create_model("vit_deit_base_patch16_384", pretrained=pretrained)
-
+    
     hooks = [2, 5, 8, 11] if hooks == None else hooks
     return _make_vit_b16_backbone(
         model, features=[96, 192, 384, 768], hooks=hooks, use_readout=use_readout

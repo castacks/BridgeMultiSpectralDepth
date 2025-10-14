@@ -5,6 +5,7 @@ from .vit import (
     _make_pretrained_vitb_rn50_384,
     _make_pretrained_vitl16_384,
     _make_pretrained_vitb16_384,
+    _make_pretrained_dinov2_vitb14,
     forward_vit,
 )
 
@@ -48,7 +49,7 @@ class Conv2dSameExport(nn.Conv2d):
         return F.conv2d(
             x, self.weight, self.bias, self.stride, self.padding, self.dilation, self.groups)
 
-def _make_encoder(backbone, features, use_pretrained, groups=1, expand=False, exportable=True, hooks=None, use_vit_only=False, use_readout="ignore",):
+def _make_encoder(backbone, features, use_pretrained, groups=1, expand=False, exportable=True, hooks=None, use_vit_only=False, use_readout="ignore",backbone_path=None):
     if backbone == "vitl16_384":
         pretrained = _make_pretrained_vitl16_384(
             use_pretrained, hooks=hooks, use_readout=use_readout
@@ -73,6 +74,13 @@ def _make_encoder(backbone, features, use_pretrained, groups=1, expand=False, ex
         scratch = _make_scratch(
             [96, 192, 384, 768], features, groups=groups, expand=expand
         )  # ViT-B/16 - 84.6% Top1 (backbone)
+    elif backbone == "dinov2_vitb14":
+        pretrained = _make_pretrained_dinov2_vitb14(
+            use_pretrained, hooks=hooks, use_readout=use_readout, backbone_path = backbone_path
+        )   
+        scratch = _make_scratch(
+            [96, 192, 384, 768], features, groups=groups, expand=expand
+        )
     elif backbone == "resnext101_wsl":
         pretrained = _make_pretrained_resnext101_wsl(use_pretrained)
         scratch = _make_scratch([256, 512, 1024, 2048], features, groups=groups, expand=expand)     # efficientnet_lite3  

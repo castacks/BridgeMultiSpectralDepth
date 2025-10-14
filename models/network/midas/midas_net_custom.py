@@ -6,7 +6,7 @@ import torch
 import torch.nn as nn
 
 from .base_model import BaseModel
-from .blocks import FeatureFusionBlock, FeatureFusionBlock_custom, Interpolate, _make_encoder
+from .blocks import FeatureFusionBlock, FeatureFusionBlock_custom, Interpolate, _make_encoder,forward_vit
 
 # Added two functions "forward_feat, forward_depth" that estimates feature map and depth map, respectively.
 class MidasNet(BaseModel):
@@ -113,6 +113,132 @@ class MidasNet(BaseModel):
 
         return torch.squeeze(out, dim=1)
 
+class MidasNetViT(BaseModel):
+    """Network for monocular depth estimation.
+    """
+
+    def __init__(self, path=None, features=256, non_negative=True,backbone="vitb16_384",pretrained_backbone=False,freeze_backbone = False,backbone_path=None):
+        """Init.
+
+        Args:
+            path (str, optional): Path to saved model. Defaults to None.
+            features (int, optional): Number of features. Defaults to 256.
+            backbone (str, optional): Backbone network for encoder. Defaults to resnet50
+        """
+        print("Loading weights: ", path)
+
+        super(MidasNetViT, self).__init__()
+
+        self.freeze_backbone = freeze_backbone
+
+        use_pretrained = False if path is None else True
+        hooks = {
+            "vitb_rn50_384": [0, 1, 8, 11],
+            "vitb16_384": [2, 5, 8, 11],
+            "vitl16_384": [5, 11, 17, 23],
+            "dinov2_vitb14": [2, 5, 8, 11],
+        }
+
+        scale = {
+            "vitb16_384": 2.0,
+            "dinov2_vitb14": 1.75
+        }
+
+        # Instantiate backbone and reassemble blocks
+        self.pretrained, self.scratch = _make_encoder(
+            backbone,
+            features,
+            pretrained_backbone, #debug pretrained_backbone hardcode # Set to true of you want to train from scratch, uses ImageNet weights #PARV_DEBUG_ SEE what to use
+            groups=1,
+            expand=False,
+            exportable=False,
+            hooks=hooks[backbone],
+            use_readout="ignore",
+            backbone_path = backbone_path
+        )
+
+        self.scratch.refinenet4 = FeatureFusionBlock(features)
+        self.scratch.refinenet3 = FeatureFusionBlock(features)
+        self.scratch.refinenet2 = FeatureFusionBlock(features)
+        self.scratch.refinenet1 = FeatureFusionBlock(features)
+
+        self.scratch.output_conv = nn.Sequential(
+            nn.Conv2d(features, 128, kernel_size=3, stride=1, padding=1),
+            Interpolate(scale_factor=scale[backbone], mode="bilinear"),
+            nn.Conv2d(128, 32, kernel_size=3, stride=1, padding=1),
+            nn.ReLU(True),
+            nn.Conv2d(32, 1, kernel_size=1, stride=1, padding=0),
+            nn.ReLU(True) if non_negative else nn.Identity(),
+        )
+
+        if path:
+            self.load(path)
+
+    def forward(self, x):
+        """Forward pass.
+
+        Args:
+            x (tensor): input data (image)
+
+        Returns:
+            tensor: depth
+        """
+        layer_1, layer_2, layer_3, layer_4 = forward_vit(self.pretrained, x)
+
+        layer_1_rn = self.scratch.layer1_rn(layer_1)
+        layer_2_rn = self.scratch.layer2_rn(layer_2)
+        layer_3_rn = self.scratch.layer3_rn(layer_3)
+        layer_4_rn = self.scratch.layer4_rn(layer_4)
+
+        path_4 = self.scratch.refinenet4(layer_4_rn)
+        path_3 = self.scratch.refinenet3(path_4, layer_3_rn)
+        path_2 = self.scratch.refinenet2(path_3, layer_2_rn)
+        path_1 = self.scratch.refinenet1(path_2, layer_1_rn)
+
+        out = self.scratch.output_conv(path_1)
+        return torch.squeeze(out, dim=1)
+
+    def forward_feat(self, x):
+        layer_1, layer_2, layer_3, layer_4 = forward_vit(self.pretrained, x)
+
+        feats = []
+        feats.append(layer_1)
+        feats.append(layer_2)
+        feats.append(layer_3)
+        feats.append(layer_4)
+
+        return feats
+
+    def forward_depth(self, x):
+        """Forward pass.
+
+        Args:
+            x (tensor): input data (image)
+
+        Returns:
+            tensor: depth
+        """
+
+        layer_1_rn = self.scratch.layer1_rn(x[0])
+        layer_2_rn = self.scratch.layer2_rn(x[1])
+        layer_3_rn = self.scratch.layer3_rn(x[2])
+        layer_4_rn = self.scratch.layer4_rn(x[3])
+
+        path_4 = self.scratch.refinenet4(layer_4_rn)
+        path_3 = self.scratch.refinenet3(path_4, layer_3_rn)
+        path_2 = self.scratch.refinenet2(path_3, layer_2_rn)
+        path_1 = self.scratch.refinenet1(path_2, layer_1_rn)
+
+        out = self.scratch.output_conv(path_1)
+
+        return torch.squeeze(out, dim=1)
+    
+    def parameters(self, recurse=True):
+        for name, param in self.named_parameters(recurse=recurse):
+            if self.freeze_backbone and "pretrained.model" in name:
+                continue
+            yield param
+
 class MidasNet_small(BaseModel):
     """Network for monocular depth estimation.
     """
@@ -183,6 +309,9 @@ class MidasNet_small(BaseModel):
             self.features =[256, 512, 1024, 2048]
         elif backbone == "efficientnet_lite3":
             self.features = [32, 48, 136, 384]
+        elif backbone == "dinov2_vitb14":
+            self.features = [96, 192, 384, 768]
+        
         else:
             print(f"Backbone '{backbone}' not implemented")
             assert False
