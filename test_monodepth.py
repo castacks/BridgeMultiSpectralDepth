@@ -117,7 +117,7 @@ def main():
                 img_vis = visualize_image(tgt_img[0], flag_np=True).transpose(1,2,0)
                 stacked = torch.cat((gt_depth,pred_depth), dim=1) # 2HW
 
-                vis_depth,_ = visualize_depth_as_numpy(stacked.squeeze(), 'jet',is_sparse=True)
+                vis_depth,_,_ = visualize_depth_as_numpy(stacked.squeeze(), 'jet',is_sparse=True)
                 gt_viz = vis_depth[:h].copy()
                 gt_mask = np.all(gt_viz == 0, axis=-1)
                 pred_depth_ = vis_depth[h:].copy()

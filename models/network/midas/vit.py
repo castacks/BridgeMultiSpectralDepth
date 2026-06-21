@@ -326,7 +326,18 @@ def _make_pretrained_dinov2_vitb14(pretrained, use_readout="ignore", hooks=None,
     model = torch.hub.load("facebookresearch/dinov2", "dinov2_vitb14")
     if backbone_path is not None:
         print(f"Loading dinvo2 backbone from {backbone_path}")
-        model.load_state_dict(torch.load(backbone_path)['backbone_model_state_dict'])
+        ckpt = torch.load(backbone_path, map_location="cpu")
+        # AnyThermal distillation checkpoints nest the backbone weights under
+        # student_model_state_dict -> backbone_model_state_dict; also support a
+        # flat backbone_model_state_dict or a raw state_dict.
+        if isinstance(ckpt, dict) and 'backbone_model_state_dict' in ckpt:
+            state_dict = ckpt['backbone_model_state_dict']
+        elif isinstance(ckpt, dict) and 'student_model_state_dict' in ckpt \
+                and 'backbone_model_state_dict' in ckpt['student_model_state_dict']:
+            state_dict = ckpt['student_model_state_dict']['backbone_model_state_dict']
+        else:
+            state_dict = ckpt
+        model.load_state_dict(state_dict)
 
     patch_size = [model.patch_size, model.patch_size]
     hooks = [2, 5, 8, 11] if hooks == None else hooks

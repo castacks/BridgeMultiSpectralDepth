@@ -5,7 +5,9 @@ model:
   eval_mode: 'depth'
   freeze_backbone: True
   pretrained_backbone: True
-  backbone_path: pretrained_checkpoints/backbone/AnyThermal_full/model20.pth
+  # Path is relative to the submodule dir (train.py runs from here); resolves to the
+  # checkpoints at the AnyThermal repo root.
+  backbone_path: ../../../pretrained_checkpoints/backbone/AnyThermal_full/model20.pth
   # Network options  
   mode: 'midas_dinov2_vitb14' #['midas', 'midas_small', 'DPT_hybrid', 'dpt_large',]
   
