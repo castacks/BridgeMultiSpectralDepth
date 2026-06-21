@@ -5,9 +5,10 @@ model:
   eval_mode: 'depth'
   freeze_backbone: True
   pretrained_backbone: True
-  backbone_path: /ocean/projects/cis220039p/pmaheshw/code/multi-modal/MultiLoc/pretraining/checkpoints/boson_freiburg_vivid/rgb_thr/2025-09-07_22-20-56_dinov2_vitb14_boson_freiburg_vivid_thr_distill_final_scaling_equal_samples/model20.pth
   # Network options  
   mode: 'midas_dinov2_vitb14' #['midas', 'midas_small', 'DPT_hybrid', 'dpt_large',]
+  
+  # Note: Part of the original config - pre_trained shoudl be False and pretrained_backbone shoudl be True
   pre_trained: False
   ckpt_path: './pt_weights/dpt_large-midas-2f21e586.pt' 
   min_depth: 1.0e-3

@@ -323,10 +323,10 @@ def _make_pretrained_vitb16_384(pretrained, use_readout="ignore", hooks=None):
     )
 
 def _make_pretrained_dinov2_vitb14(pretrained, use_readout="ignore", hooks=None, backbone_path=None):
-    model = torch.hub.load("/ocean/projects/cis220039p/pmaheshw/code/multi-modal/dinov2", "dinov2_vitb14",source="local",pretrained= pretrained)
+    model = torch.hub.load("facebookresearch/dinov2", "dinov2_vitb14")
     if backbone_path is not None:
         print(f"Loading dinvo2 backbone from {backbone_path}")
-        model.load_state_dict(torch.load(backbone_path)["student_model_state_dict"]['backbone_model_state_dict'])
+        model.load_state_dict(torch.load(backbone_path)['backbone_model_state_dict'])
 
     patch_size = [model.patch_size, model.patch_size]
     hooks = [2, 5, 8, 11] if hooks == None else hooks
